@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+
+    <title>FreightWise Programming Test</title>
+
+    <script>
+        'use strict';
+
+        /**
+         * Software Developer test.
+         *
+         * Doing research and making API calls are an important part of what we do at FreightWise.  This test will
+         * demonstrate your abilities to:
+         *
+         * - Make an API call
+         * - Research an API
+         * - Do basic DOM manipulation
+         * - Parse data
+         * - Handle errors
+         * - Be creative
+         *
+         * Feel free to ask any questions you may have.  Use a lot of comments, and explain why you are doing things.
+         * Don't spend more than 1-2 hours on it - we aren't expecting a finished product, but it should work and look
+         * nice.  Feel free to use any third party libraries, and if you do so, explain why you used them instead of
+         * built in browser APIs.
+         *
+         * Instructions:
+         * - Use the axios (https://github.com/axios/axios) request library to make an API call to the OpenWeatherMap
+         *   API for Current Weather Data using this API key:  25e989bd41e3e24ce13173d8126e0fd6
+         *   We've already imported this library to get you started.
+         * - Use either async/await or Promises.
+         * - Get the weather for Brentwood, TN, and write it to the DOM using the `setResults` method below.  Be
+         *   creative and make it look nice.
+         * - Handle errors and use the `setError` method below to display the error.  Also make it look nice.
+         * - If you find any mistakes in the test, fix them, and leave a comment about what you fixed and why.
+         * - Make sure your code is readable and maintainable.
+         * - Use plenty of descriptive comments.
+         * - Make sure your code runs in the latest version of Google Chrome and Firefox (ES6 is allowed).
+         * - Make your code live (GitHub with GitHub pages works nice).
+         * - Send a link to your finished test to dev-team-jobs@freightwisellc.com.
+         *
+         * Feel free to add your own twist to it (completely optional).  Here are a few ideas:
+         * - Sign up for NewsAPI.org and get the Top Headlines and show them along with the weather.
+         * - Use the browser location API to get the user's current location, and show that location's weather.
+         * - Show a satellite map of the weather in Brentwood.
+         * - Request a user's phone number and send them an SMS with the weather.
+         */
+        class Test {
+            constructor() {
+                this.testResults = document.querySelector('.test-results');
+                this.dailyWeather = document.querySelector('.daily-weather');
+
+            }
+
+            async run() {
+                console.log(new Date().toISOString(), '[Test]', 'Running the test');
+
+                try {
+                    
+                    let oneCallData = {};
+                    const oneCall = await axios.get(
+                            `https://api.openweathermap.org/data/3.0/onecall?lat=36.0331&lon=-86.782776&exclude=minutely&appid=91f0e4ba7de35f037e84e4fcfab79bbd&units=imperial`
+                        );
+                    oneCallData = oneCall.data
+
+                    if (oneCall.status !== 200) {
+                        console.log(`OpenWeatherMap threw an error getting the weather`);
+                        this.setError(JSON.stringify(oneCallData))
+                    } else {
+                        console.log('oneCallData: ', oneCallData)
+                        this.setResults(oneCallData)
+                    }
+                } catch (error) {
+                    console.log(`There was an error fetching the weather in the lambda: ${error}`);
+                    this.setError(`<p><strong>There was an error fetching the weather in the lambda: ${error}</strong><p>` )
+                }
+            }
+
+            capitalizeDescription(inputString) {
+                if (!inputString) return '';
+                return inputString
+                    .split(' ')
+                    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+                    .join(' ');
+            }
+            getPicAltText(pic) {
+                const map = {
+                    '01d': 'Orange Sun',
+                    '02d': 'Orange Sun behind white clouds',
+                    '03d': 'White Cloud',
+                    '04d': 'white cloud with moon behind it',
+                    '09d': 'white cloud with dark cloud behind it and water is falling from white cloud',
+                    '10d': 'white cloud with orange sun behind it and water is falling from white cloud',
+                    '11d': 'white cloud with dark cloud behind it and lightning is coming from white cloud',
+                    '13d': 'snowflake',
+                    '50d': 'horizontal lines indicating fog',
+                    '01n': 'Orange Sun',
+                    '02n': 'Light blue crescent moon behind white clouds',
+                    '03n': 'White Cloud',
+                    '04n': 'white cloud with dark cloud behind it',
+                    '09n': 'white cloud with dark cloud behind it and water is falling from white cloud',
+                    '10n': 'white cloud with moon behind it and water is falling from white cloud',
+                    '11n': 'white cloud with dark cloud behind it and lightning is coming from white cloud',
+                    '13n': 'snowflake',
+                    '50n': 'horizontal lines indicating fog',
+                };
+                return map[pic];
+            };
+
+            getPictureObject(icon) {
+                return {image: `./assets/${icon}.svg`, imageAltText: this.getPicAltText(icon)};
+            }
+
+            setError(message) {
+                // TODO: Format the error
+                this.testResults.innerHTML = (message || '').toString();
+            }
+
+            convertToDay(timeStamp, offset) {
+                const date = dateFns.fromUnixTime(timeStamp);
+                const adjustedDate = dateFns.addSeconds(date, offset);
+                return dateFns.format(adjustedDate, 'EEEE');
+            };
+
+            convertToTime(timeStamp, offset) {
+                const date = dateFns.fromUnixTime(timeStamp);
+                const adjustedDate = dateFns.addSeconds(date, offset);
+                return dateFns.format(adjustedDate, 'h:mm a');
+            };
+
+            mapDailyWeather(dailyWeather, offset) {
+                if (!dailyWeather || !offset) {
+                    throw new Error('Missing Daily Data');
+                }
+
+                return dailyWeather.slice(1, 6).map(day => ({
+                    day: this.convertToDay(day.dt, offset),
+                    avgTemp: Math.round(day.temp.day),
+                    minTemp: Math.round(day.temp.min),
+                    maxTemp: Math.round(day.temp.max),
+                    icon: day.weather[0].icon,
+                    description: day.weather[0].description,
+                    summary: day.summary,
+                    sunrise: this.convertToTime(day.sunrise, offset),
+                    sunset: this.convertToTime(day.sunset, offset),
+                }));
+            }
+
+            renderDailyResults(dailyResults) {
+                const container = this.dailyWeather
+                container.style.display = "grid";
+                container.style.gridTemplateColumns = "repeat(auto-fit, minmax(300px, 1fr))";
+                container.style.gap = "20px";
+
+                
+                dailyResults.forEach(day => {
+                    const dayCard = document.createElement("div");
+                    dayCard.style.border = "1px solid #ddd";
+                    dayCard.style.borderRadius = "8px";
+                    dayCard.style.padding = "16px";
+                    dayCard.style.boxShadow = "0 2px 4px rgba(0, 0, 0, 0.1)";
+                    dayCard.style.textAlign = "center";
+                    const conditions = this.capitalizeDescription(day.description)
+
+                    dayCard.innerHTML = `
+                    <h3>${day.day}</h3>
+                    <img src="./assets/${day.icon}.svg" alt="${conditions}" style="width: 80px; height: 80px; margin: 10px 0;" />
+                    <p><strong>Temperature:</strong> ${day.avgTemp}°F (Min: ${day.minTemp}°F, Max: ${day.maxTemp}°F)</p>
+                    <p><strong>Conditions:</strong> ${conditions}</p>
+                    <p>${day.summary}</p>
+                    <p><strong>Sunrise:</strong> ${day.sunrise}</p>
+                    <p><strong>Sunset:</strong> ${day.sunset}</p>
+                    `;
+
+                    container.appendChild(dayCard);
+                });
+            }
+
+            setResults(results) {
+                
+                const description = this.capitalizeDescription(results.current.weather[0].description);
+                const temperature = results.current.temp;
+                const humidity = results.current.humidity;
+                const picture = this.getPictureObject(results.current.weather[0].icon)
+                console.log('picture: ', picture)
+                const dailyWeather = this.mapDailyWeather(results.daily, results.timezone_offset)
+                console.log('daily: ', dailyWeather)
+                const renderedDailyResults = this.renderDailyResults(dailyWeather)
+                const renderedResults = `
+                            <img src=${picture.image} width="500" height="400">
+                            <h2> Here is the current weather for Brentwood, TN </h2>
+                            <p><strong>Condition:</strong> ${description}</p>
+                            <p><strong>Temperature:</strong> ${temperature}°F</p>
+                            <p><strong>Humidity:</strong> ${humidity}%</p>
+                            <h2>Here is the weather for the next 5 days: <h2>
+                        `;
+                this.testResults.innerHTML = renderedResults
+            }
+        }
+    </script>
+
+    <style>
+        .button-container {
+            text-align: center;
+            padding-top: 20px
+        }
+
+        .button-container > button {
+            margin: 0;
+            padding: 10px 18px;
+            color: white;
+            background-color: #008000;
+            border: none;
+            border-radius: 3px;
+            transition: all 200ms ease-in-out;
+            font-size: 14px;
+        }
+
+        .button-container > button:hover {
+            background-color: #00A000;
+        }
+
+        .button-container > button:active {
+            background-color: #006000;
+        }
+
+        .test-results {
+            display: flex;
+            place-items: center;
+            flex-direction: column;
+            text-align: center;
+        }
+    </style>
+
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/date-fns/4.1.0/cdn.min.js"></script>
+</head>
+<body>
+    <div class="test-results"></div>
+
+    <div class="daily-weather"></div>
+
+    <div class="button-container"></div>
+
+    <script>
+        'use strict';
+
+        /**
+         * Creates a button for kicking off the test and adds it to the DOM.
+         *
+         * @param {HTMLElement} context  the parent element to add the button to
+         * @param {Test}        test     the test to be executed
+         * @returns {HTMLElement} the button added to the test
+         */
+        function addButtonForTest(context, test) {
+            let testButton = document.createElement('button');
+
+            testButton.type = 'button';
+            testButton.innerText = 'Get the Brentwood Weather';
+            testButton.onclick = () => test.run();
+
+            context.appendChild(testButton);
+
+            return testButton;
+        }
+
+        // Create the Test and add a button to the UI for running the test
+        const test = new Test();
+        const buttonContainer = document.getElementsByClassName('button-container')[0];
+
+        addButtonForTest(buttonContainer, test);
+    </script>
+</body>
+</html>
